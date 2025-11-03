@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserPlus, Edit3, Trash2, Search, Filter, Tag } from 'lucide-react';
+import { UserPlus, CreditCard as Edit3, Trash2, Search, Filter, Tag } from 'lucide-react';
 import { Customer } from '../types';
 import { translations } from '../utils/translations';
 
@@ -122,7 +122,24 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, setC
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.phone.includes(searchTerm);
-    const matchesFilter = filterType === (language === 'ar' ? 'الكل' : 'All') || customer.type === filterType;
+    
+    if (filterType === (language === 'ar' ? 'الكل' : 'All')) {
+      return matchesSearch;
+    }
+    
+    // Handle filter matching for both languages
+    const matchesFilter = customer.type === filterType || 
+      (language === 'ar' && (
+        (filterType === 'جديد' && customer.type === 'new') ||
+        (filterType === 'محتمل' && customer.type === 'potential') ||
+        (filterType === 'دائم' && customer.type === 'permanent')
+      )) ||
+      (language === 'en' && (
+        (filterType === 'new' && customer.type === 'جديد') ||
+        (filterType === 'potential' && customer.type === 'محتمل') ||
+        (filterType === 'permanent' && customer.type === 'دائم')
+      ));
+    
     return matchesSearch && matchesFilter;
   });
 
@@ -158,18 +175,18 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, setC
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h2 className="text-2xl font-bold text-gray-900">{t('customerManagement')}</h2>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
           >
             <UserPlus className={`h-4 w-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
             {t('addNewCustomer')}
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="relative flex-1">
             <Search className={`absolute ${language === 'ar' ? 'right-3' : 'left-3'} top-3 h-4 w-4 text-gray-400`} />
             <input
@@ -180,12 +197,12 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, setC
               className={`w-full ${language === 'ar' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
             />
           </div>
-          <div className="relative">
+          <div className="relative sm:col-span-1">
             <Filter className={`absolute ${language === 'ar' ? 'right-3' : 'left-3'} top-3 h-4 w-4 text-gray-400`} />
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className={`${language === 'ar' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+              className={`w-full ${language === 'ar' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
             >
               <option value={language === 'ar' ? 'الكل' : 'All'}>{t('allCustomers')}</option>
               <option value={language === 'ar' ? 'جديد' : 'new'}>{t('new')}</option>
@@ -195,7 +212,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, setC
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCustomers.map(customer => (
             <div key={customer.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
               <div className="flex justify-between items-start mb-3">

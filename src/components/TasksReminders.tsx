@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit3, Trash2, Clock, CheckCircle, AlertCircle, Bell } from 'lucide-react';
+import { Plus, CreditCard as Edit3, Trash2, Clock, CheckCircle, AlertCircle, Bell, Printer } from 'lucide-react';
 import { Task, Customer } from '../types';
 import { translations } from '../utils/translations';
 
@@ -19,18 +19,54 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [notifications, setNotifications] = useState<Task[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [completedTasksStartDate, setCompletedTasksStartDate] = useState(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+    return date.toISOString().slice(0, 10);
+  });
+  const [completedTasksEndDate, setCompletedTasksEndDate] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
   
   const [formData, setFormData] = useState({
     title: '',
     customerId: '',
     description: '',
-    dueDate: new Date().toISOString().slice(0, 16),
+    dueDate: (() => {
+      const now = new Date();
+      now.setHours(now.getHours() + 1); // Add 1 hour to current time
+      return now.toISOString().slice(0, 16);
+    })(),
     priority: (language === 'ar' ? 'متوسط' : 'medium') as const,
     status: (language === 'ar' ? 'قيد الانتظار' : 'pending') as const
   });
 
   const t = (key: string) => {
     return translations[language as keyof typeof translations]?.[key as keyof typeof translations['ar']] || key;
+  };
+
+  const printTasks = () => {
+    const printContent = generateTasksPrintContent(filteredTasks, customers, language, t, completedTasksStartDate, completedTasksEndDate);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="${language === 'ar' ? 'ar' : 'en'}" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${language === 'ar' ? 'تقرير المهام' : 'Tasks Report'}</title>
+          <style>${getPrintStyles()}</style>
+        </head>
+        <body>${printContent}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        setTimeout(() => printWindow.print(), 500);
+      };
+    }
   };
 
   // Check for due tasks every minute
@@ -92,11 +128,14 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
   };
 
   const resetForm = () => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1); // Add 1 hour to current time
+    
     setFormData({
       title: '',
       customerId: '',
       description: '',
-      dueDate: new Date().toISOString().slice(0, 16),
+      dueDate: now.toISOString().slice(0, 16),
       priority: language === 'ar' ? 'متوسط' : 'medium',
       status: language === 'ar' ? 'قيد الانتظار' : 'pending'
     });
@@ -265,6 +304,40 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
     return taskDate.toDateString() === today.toDateString() && task.status !== 'مكتمل' && task.status !== 'completed';
   });
 
+  // Filter completed tasks by date range
+  const filteredCompletedTasks = tasks.filter(task => {
+    const isCompleted = task.status === 'مكتمل' || task.status === 'completed';
+    if (!isCompleted) return false;
+    
+    const taskDate = new Date(task.dueDate).toISOString().slice(0, 10);
+    return taskDate >= completedTasksStartDate && taskDate <= completedTasksEndDate;
+  });
+  const filterTasks = () => {
+    if (statusFilter === 'all') {
+      return sortedTasks;
+    }
+    
+    // Handle filter matching for both languages
+    return sortedTasks.filter(task => {
+      return task.status === statusFilter ||
+        (language === 'ar' && (
+          (statusFilter === 'قيد الانتظار' && task.status === 'pending') ||
+          (statusFilter === 'جاري' && task.status === 'inProgress') ||
+          (statusFilter === 'مكتمل' && task.status === 'completed')
+        )) ||
+        (language === 'en' && (
+          (statusFilter === 'pending' && task.status === 'قيد الانتظار') ||
+          (statusFilter === 'inProgress' && task.status === 'جاري') ||
+          (statusFilter === 'completed' && task.status === 'مكتمل')
+        ));
+    });
+  };
+
+  const filteredTasks = filterTasks();
+  const pendingTasks = tasks.filter(t => t.status === 'قيد الانتظار' || t.status === 'pending');
+  const inProgressTasks = tasks.filter(t => t.status === 'جاري' || t.status === 'inProgress');
+  const completedTasks = tasks.filter(t => t.status === 'مكتمل' || t.status === 'completed');
+
   return (
     <div className="space-y-6">
       {notifications.length > 0 && (
@@ -309,7 +382,7 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
             <div>
               <p className="text-sm text-gray-600">{t('completedTasks')}</p>
               <p className="text-2xl font-bold text-green-600">
-                {tasks.filter(t => t.status === 'مكتمل' || t.status === 'completed').length}
+                {completedTasks.length}
               </p>
             </div>
             <CheckCircle className="h-8 w-8 text-green-600" />
@@ -318,116 +391,129 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h2 className="text-2xl font-bold text-gray-900">{t('tasksManagement')}</h2>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-          >
-            <Plus className={`h-4 w-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
-            {t('addNewTask')}
-          </button>
+          <div className={`flex flex-wrap gap-2 ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'}`}>
+            <button
+              onClick={printTasks}
+              className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm"
+            >
+              <Printer className={`h-4 w-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+              {t('printReport')}
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
+            >
+              <Plus className={`h-4 w-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+              {t('addNewTask')}
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          {/* Active Tasks */}
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {language === 'ar' ? 'المهام النشطة' : 'Active Tasks'}
-            </h3>
-            {sortedTasks.filter(task => task.status !== 'مكتمل' && task.status !== 'completed').map(task => (
-              <div 
-                key={task.id} 
-                className={`bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 ${
-                  isOverdue(task.dueDate) ? 'border-r-4 border-red-500' : ''
-                }`}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div className={`flex items-start ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'}`}>
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
-                      {getStatusIcon(task.status)}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">
-                        {task.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">{getCustomerName(task.customerId)}</p>
-                      <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                    </div>
-                  </div>
-                  
-                  <div className={`flex items-center ${language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2'}`}>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                      {getPriorityLabel(task.priority)}
-                    </span>
-                    <button
-                      onClick={() => handleEdit(task)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between pr-11">
-                  <div className={`flex items-center ${language === 'ar' ? 'space-x-4 space-x-reverse' : 'space-x-4'} text-sm text-gray-600`}>
-                    <span className={isOverdue(task.dueDate) ? 'text-red-600 font-medium' : ''}>
-                      {t('due')}: {new Date(task.dueDate).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')}
-                    </span>
-                    {isOverdue(task.dueDate) && (
-                      <span className="text-red-600 font-medium">{t('overdue')}</span>
-                    )}
-                  </div>
-                  
-                  <div className={`flex items-center ${language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2'}`}>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                      {getStatusLabel(task.status)}
-                    </span>
-                    <select
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task.id, e.target.value as Task['status'])}
-                      className="text-xs border border-gray-300 rounded px-2 py-1"
-                    >
-                      <option value={language === 'ar' ? 'قيد الانتظار' : 'pending'}>{t('pending')}</option>
-                      <option value={language === 'ar' ? 'جاري' : 'inProgress'}>{t('inProgress')}</option>
-                      <option value={language === 'ar' ? 'مكتمل' : 'completed'}>{t('completed')}</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            {sortedTasks.filter(task => task.status !== 'مكتمل' && task.status !== 'completed').length === 0 && (
-              <div className="text-center py-4 text-gray-500">
-                {language === 'ar' ? 'لا توجد مهام نشطة' : 'No active tasks'}
-              </div>
-            )}
+        {/* Filter Tabs */}
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {language === 'ar' ? 'جميع المهام' : 'All Tasks'} ({tasks.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter(language === 'ar' ? 'قيد الانتظار' : 'pending')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === (language === 'ar' ? 'قيد الانتظار' : 'pending')
+                  ? 'bg-gray-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {language === 'ar' ? 'قيد الانتظار' : 'Pending'} ({pendingTasks.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter(language === 'ar' ? 'جاري' : 'inProgress')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === (language === 'ar' ? 'جاري' : 'inProgress')
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {language === 'ar' ? 'جاري' : 'In Progress'} ({inProgressTasks.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter(language === 'ar' ? 'مكتمل' : 'completed')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === (language === 'ar' ? 'مكتمل' : 'completed')
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {language === 'ar' ? 'مكتملة' : 'Completed'} ({completedTasks.length})
+            </button>
           </div>
+        </div>
 
-          {/* Completed Tasks */}
-          {sortedTasks.filter(task => task.status === 'مكتمل' || task.status === 'completed').length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                {language === 'ar' ? 'المهام المكتملة' : 'Completed Tasks'}
-              </h3>
-              {sortedTasks.filter(task => task.status === 'مكتمل' || task.status === 'completed').map(task => (
+        {/* Date Filter for Completed Tasks */}
+        {statusFilter === (language === 'ar' ? 'مكتمل' : 'completed') && (
+          <div className="bg-green-50 rounded-lg p-4 mb-4">
+            <h3 className="text-lg font-semibold text-green-800 mb-3">
+              {language === 'ar' ? 'فلترة المهام المكتملة' : 'Filter Completed Tasks'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-green-700 mb-1">
+                  {language === 'ar' ? 'من تاريخ' : 'From Date'}
+                </label>
+                <input
+                  type="date"
+                  value={completedTasksStartDate}
+                  onChange={(e) => setCompletedTasksStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-green-700 mb-1">
+                  {language === 'ar' ? 'إلى تاريخ' : 'To Date'}
+                </label>
+                <input
+                  type="date"
+                  value={completedTasksEndDate}
+                  onChange={(e) => setCompletedTasksEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex items-end sm:col-span-2 xl:col-span-1">
+                <div className="text-sm text-green-700">
+                  {language === 'ar' ? 'المهام المكتملة:' : 'Completed Tasks:'} {filteredCompletedTasks.length}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {(statusFilter === (language === 'ar' ? 'مكتمل' : 'completed') ? filteredCompletedTasks : filteredTasks).map(task => (
             <div 
               key={task.id} 
-              className="bg-green-50 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 opacity-75"
+              className={`rounded-lg p-4 hover:shadow-md transition-shadow duration-200 ${
+                task.status === 'مكتمل' || task.status === 'completed' 
+                  ? 'bg-green-50 opacity-75' 
+                  : isOverdue(task.dueDate) 
+                    ? 'bg-gray-50 border-r-4 border-red-500' 
+                    : 'bg-gray-50'
+              }`}
             >
               <div className="flex justify-between items-start mb-3">
-                <div className={`flex items-start ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'}`}>
+                <div className={"flex items-start " + (language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3')}>
                   <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
                     {getStatusIcon(task.status)}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold line-through text-gray-500">
+                    <h3 className={"font-semibold " + (task.status === 'مكتمل' || task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900')}>
                       {task.title}
                     </h3>
                     <p className="text-sm text-gray-600">{getCustomerName(task.customerId)}</p>
@@ -435,8 +521,8 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
                   </div>
                 </div>
                 
-                <div className={`flex items-center ${language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2'}`}>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                <div className={"flex items-center " + (language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2')}>
+                  <span className={"px-2 py-1 rounded-full text-xs font-medium " + getPriorityColor(task.priority)}>
                     {getPriorityLabel(task.priority)}
                   </span>
                   <button
@@ -455,17 +541,22 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
               </div>
               
               <div className="flex items-center justify-between pr-11">
-                <div className={`flex items-center ${language === 'ar' ? 'space-x-4 space-x-reverse' : 'space-x-4'} text-sm text-gray-600`}>
-                  <span>
+                <div className={"flex items-center " + (language === 'ar' ? 'space-x-4 space-x-reverse' : 'space-x-4') + " text-sm text-gray-600"}>
+                  <span className={isOverdue(task.dueDate) && task.status !== 'مكتمل' && task.status !== 'completed' ? 'text-red-600 font-medium' : ''}>
                     {t('due')}: {new Date(task.dueDate).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')}
                   </span>
-                  <span className="text-green-600 font-medium">
-                    {language === 'ar' ? 'مكتملة' : 'Completed'}
-                  </span>
+                  {isOverdue(task.dueDate) && task.status !== 'مكتمل' && task.status !== 'completed' && (
+                    <span className="text-red-600 font-medium">{t('overdue')}</span>
+                  )}
+                  {(task.status === 'مكتمل' || task.status === 'completed') && (
+                    <span className="text-green-600 font-medium">
+                      {language === 'ar' ? 'مكتملة' : 'Completed'}
+                    </span>
+                  )}
                 </div>
                 
-                <div className={`flex items-center ${language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2'}`}>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                <div className={"flex items-center " + (language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2')}>
+                  <span className={"px-2 py-1 rounded-full text-xs font-medium " + getStatusColor(task.status)}>
                     {getStatusLabel(task.status)}
                   </span>
                   <select
@@ -473,23 +564,24 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
                     onChange={(e) => handleStatusChange(task.id, e.target.value as Task['status'])}
                     className="text-xs border border-gray-300 rounded px-2 py-1"
                   >
-                    <option value={language === 'ar' ? 'قيد الانتظار' : 'pending'}>{t('pending')}</option>
-                    <option value={language === 'ar' ? 'جاري' : 'inProgress'}>{t('inProgress')}</option>
-                    <option value={language === 'ar' ? 'مكتمل' : 'completed'}>{t('completed')}</option>
+                    <option value={language === 'ar' ? 'قيد الانتظار' : 'pending'}>{language === 'ar' ? 'قيد الانتظار' : 'Pending'}</option>
+                    <option value={language === 'ar' ? 'جاري' : 'inProgress'}>{language === 'ar' ? 'جاري' : 'In Progress'}</option>
+                    <option value={language === 'ar' ? 'مكتمل' : 'completed'}>{language === 'ar' ? 'مكتمل' : 'Completed'}</option>
                   </select>
                 </div>
               </div>
             </div>
           ))}
+          
+          {(statusFilter === (language === 'ar' ? 'مكتمل' : 'completed') ? filteredCompletedTasks : filteredTasks).length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              {statusFilter === (language === 'ar' ? 'مكتمل' : 'completed') 
+                ? (language === 'ar' ? 'لا توجد مهام مكتملة في الفترة المحددة' : 'No completed tasks found in the selected period')
+                : (language === 'ar' ? 'لا توجد مهام' : 'No tasks found')
+              }
             </div>
           )}
         </div>
-
-        {tasks.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            {t('noTasksRecorded')}
-          </div>
-        )}
       </div>
 
       {showForm && (
@@ -575,7 +667,7 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
                 </select>
               </div>
 
-              <div className={`flex justify-end ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'} pt-4`}>
+              <div className={"flex justify-end " + (language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3') + " pt-4"}>
                 <button
                   type="button"
                   onClick={resetForm}
@@ -597,5 +689,117 @@ const TasksReminders: React.FC<TasksRemindersProps> = ({
     </div>
   );
 };
+
+const generateTasksPrintContent = (tasks: Task[], customers: Customer[], language: string, t: (key: string) => string, startDate: string, endDate: string) => {
+  const getCustomerName = (customerId?: string) => {
+    if (!customerId) return language === 'ar' ? 'مهمة عامة' : 'General Task';
+    const customer = customers.find(c => c.id === customerId);
+    return customer?.name || (language === 'ar' ? 'عميل غير معروف' : 'Unknown Customer');
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    if (language === 'ar') {
+      switch (priority) {
+        case 'high': return 'عالي';
+        case 'medium': return 'متوسط';
+        case 'low': return 'منخفض';
+        default: return priority;
+      }
+    } else {
+      switch (priority) {
+        case 'عالي': return 'High';
+        case 'متوسط': return 'Medium';
+        case 'منخفض': return 'Low';
+        default: return priority;
+      }
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (language === 'ar') {
+      switch (status) {
+        case 'pending': return 'قيد الانتظار';
+        case 'inProgress': return 'جاري';
+        case 'completed': return 'مكتمل';
+        default: return status;
+      }
+    } else {
+      switch (status) {
+        case 'قيد الانتظار': return 'Pending';
+        case 'جاري': return 'In Progress';
+        case 'مكتمل': return 'Completed';
+        default: return status;
+      }
+    }
+  };
+
+  return `
+    <div class="print-container" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+      <div class="print-header">
+        <div class="print-title">${language === 'ar' ? 'تقرير المهام' : 'Tasks Report'}</div>
+        <div class="print-date">
+          ${language === 'ar' ? 'فترة المهام المكتملة:' : 'Completed Tasks Period:'} ${new Date(startDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')} - ${new Date(endDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
+        </div>
+        <div class="print-date">
+          ${language === 'ar' ? 'تاريخ الإنشاء:' : 'Generated on:'} ${new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')} - ${new Date().toLocaleTimeString(language === 'ar' ? 'ar-EG' : 'en-US')}
+        </div>
+      </div>
+      
+      <div class="print-section">
+        <div class="print-section-title">${language === 'ar' ? 'قائمة المهام' : 'Tasks List'}</div>
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th>${language === 'ar' ? 'عنوان المهمة' : 'Task Title'}</th>
+              <th>${language === 'ar' ? 'العميل' : 'Customer'}</th>
+              <th>${language === 'ar' ? 'الأولوية' : 'Priority'}</th>
+              <th>${language === 'ar' ? 'الحالة' : 'Status'}</th>
+              <th>${language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tasks.map(task => `
+              <tr>
+                <td>${task.title}</td>
+                <td>${getCustomerName(task.customerId)}</td>
+                <td>${getPriorityLabel(task.priority)}</td>
+                <td>${getStatusLabel(task.status)}</td>
+                <td>${new Date(task.dueDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}</td>
+              </tr>
+              ${task.description ? `
+                <tr>
+                  <td colspan="5" style="background-color: #f9fafb; font-size: 10pt;">
+                    ${language === 'ar' ? 'الوصف:' : 'Description:'} ${task.description}
+                  </td>
+                </tr>
+              ` : ''}
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="print-footer">
+        <div>${language === 'ar' ? 'تم إنشاء هذا التقرير بواسطة نظام إدارة العملاء (CRM)' : 'This report was generated by CRM System'}</div>
+      </div>
+    </div>
+  `;
+};
+
+const getPrintStyles = () => `
+  body { font-family: 'Arial', sans-serif; font-size: 12pt; line-height: 1.4; color: #000; background: white; margin: 0; padding: 20px; }
+  .print-container { max-width: none; margin: 0; padding: 0; }
+  .print-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+  .print-title { font-size: 24pt; font-weight: bold; margin-bottom: 10px; }
+  .print-date { font-size: 14pt; color: #666; margin-bottom: 5px; }
+  .print-section { margin-bottom: 25px; page-break-inside: avoid; }
+  .print-section-title { font-size: 18pt; font-weight: bold; color: #333; margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+  .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+  .print-table th { background-color: #f5f5f5; font-weight: bold; }
+  .print-footer { margin-top: 30px; text-align: center; font-size: 10pt; color: #666; border-top: 1px solid #ccc; padding-top: 15px; }
+  [dir="rtl"] { direction: rtl; text-align: right; }
+  [dir="rtl"] .print-table th, [dir="rtl"] .print-table td { text-align: right; }
+  [dir="rtl"] .print-header { text-align: center; }
+`;
 
 export default TasksReminders;

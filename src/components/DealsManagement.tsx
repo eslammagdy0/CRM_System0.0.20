@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit3, Trash2, DollarSign, TrendingUp } from 'lucide-react';
+import { Plus, CreditCard as Edit3, Trash2, DollarSign, TrendingUp, Printer } from 'lucide-react';
 import { Deal, Customer } from '../types';
 import { translations, currencies, currenciesEn } from '../utils/translations';
 
@@ -20,6 +20,12 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
 }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showRejectionReasonsManager, setShowRejectionReasonsManager] = useState(false);
+  const [rejectionReasons, setRejectionReasons] = useState<string[]>(() => {
+    const saved = localStorage.getItem('crm-rejection-reasons');
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [formData, setFormData] = useState({
     title: '',
@@ -27,12 +33,36 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
     value: 0,
     status: (language === 'ar' ? 'جاري' : 'ongoing') as const,
     probability: 50,
-    expectedCloseDate: new Date().toISOString().slice(0, 10),
-    notes: ''
+    expectedCloseDate: new Date().toISOString().slice(0, 10), // Current date
+    notes: '',
+    rejectionReason: ''
   });
 
   const t = (key: string) => {
     return translations[language as keyof typeof translations]?.[key as keyof typeof translations['ar']] || key;
+  };
+
+  const printDeals = () => {
+    const printContent = generateDealsPrintContent(filteredDeals, customers, currency, language, t);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="${language === 'ar' ? 'ar' : 'en'}" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${language === 'ar' ? 'تقرير الصفقات' : 'Deals Report'}</title>
+          <style>${getPrintStyles()}</style>
+        </head>
+        <body>${printContent}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        setTimeout(() => printWindow.print(), 500);
+      };
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,6 +94,13 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
       setDeals(prev => [...prev, dealData]);
     }
 
+    // Save rejection reason if it's new
+    if (processedFormData.rejectionReason && !rejectionReasons.includes(processedFormData.rejectionReason)) {
+      const newReasons = [...rejectionReasons, processedFormData.rejectionReason];
+      setRejectionReasons(newReasons);
+      localStorage.setItem('crm-rejection-reasons', JSON.stringify(newReasons));
+    }
+
     resetForm();
   };
 
@@ -74,8 +111,9 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
       value: 0,
       status: language === 'ar' ? 'جاري' : 'ongoing',
       probability: 50,
-      expectedCloseDate: new Date().toISOString().slice(0, 10),
-      notes: ''
+      expectedCloseDate: new Date().toISOString().slice(0, 10), // Reset to current date
+      notes: '',
+      rejectionReason: ''
     });
     setShowForm(false);
     setEditingDeal(null);
@@ -98,7 +136,8 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
       status: convertedStatus,
       probability: deal.probability,
       expectedCloseDate: deal.expectedCloseDate,
-      notes: deal.notes || ''
+      notes: deal.notes || '',
+      rejectionReason: deal.rejectionReason || ''
     });
     setEditingDeal(deal);
     setShowForm(true);
@@ -189,6 +228,32 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
     }
   };
 
+  const filterDeals = () => {
+    if (statusFilter === 'all') {
+      return deals;
+    }
+    
+    // Handle filter matching for both languages
+    return deals.filter(deal => {
+      return deal.status === statusFilter ||
+        (language === 'ar' && (
+          (statusFilter === 'جاري' && deal.status === 'ongoing') ||
+          (statusFilter === 'مغلق' && deal.status === 'closed') ||
+          (statusFilter === 'مرفوض' && deal.status === 'rejected')
+        )) ||
+        (language === 'en' && (
+          (statusFilter === 'ongoing' && deal.status === 'جاري') ||
+          (statusFilter === 'closed' && deal.status === 'مغلق') ||
+          (statusFilter === 'rejected' && deal.status === 'مرفوض')
+        ));
+    });
+  };
+
+  const filteredDeals = filterDeals();
+  const ongoingDeals = deals.filter(d => d.status === 'جاري' || d.status === 'ongoing');
+  const closedDeals = deals.filter(d => d.status === 'مغلق' || d.status === 'closed');
+  const rejectedDeals = deals.filter(d => d.status === 'مرفوض' || d.status === 'rejected');
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -197,7 +262,7 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
             <div>
               <p className="text-sm text-gray-600">{t('totalOngoingDeals')}</p>
               <p className="text-2xl font-bold text-blue-600">
-                {deals.filter(d => d.status === 'جاري' || d.status === 'ongoing').length}
+                {ongoingDeals.length}
               </p>
             </div>
             <TrendingUp className="h-8 w-8 text-blue-600" />
@@ -221,7 +286,7 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
             <div>
               <p className="text-sm text-gray-600">{t('closedDeals')}</p>
               <p className="text-2xl font-bold text-purple-600">
-                {deals.filter(d => d.status === 'مغلق' || d.status === 'closed').length}
+                {closedDeals.length}
               </p>
             </div>
             <TrendingUp className="h-8 w-8 text-purple-600" />
@@ -230,19 +295,81 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h2 className="text-2xl font-bold text-gray-900">{t('dealsManagement')}</h2>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-          >
-            <Plus className={`h-4 w-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
-            {t('addNewDeal')}
-          </button>
+          <div className={`flex flex-wrap gap-2 ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'}`}>
+          <div className={"flex flex-wrap gap-2 " + (language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3')}>
+            <button
+              onClick={printDeals}
+              className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm"
+            >
+              <Printer className={`h-4 w-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+              {t('printReport')}
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
+            >
+              <Plus className={`h-4 w-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+              {t('addNewDeal')}
+            </button>
+            <button
+              onClick={() => setShowRejectionReasonsManager(true)}
+              className="flex items-center px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200 text-sm"
+            >
+              {language === 'ar' ? 'إدارة أسباب الرفض' : 'Manage Rejection Reasons'}
+            </button>
+          </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {deals.map(deal => (
+        {/* Filter Section */}
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {language === 'ar' ? 'جميع الصفقات' : 'All Deals'} ({deals.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter(language === 'ar' ? 'جاري' : 'ongoing')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === (language === 'ar' ? 'جاري' : 'ongoing')
+                  ? 'bg-yellow-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {t('ongoing')} ({ongoingDeals.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter(language === 'ar' ? 'مغلق' : 'closed')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === (language === 'ar' ? 'مغلق' : 'closed')
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {t('closed')} ({closedDeals.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter(language === 'ar' ? 'مرفوض' : 'rejected')}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                statusFilter === (language === 'ar' ? 'مرفوض' : 'rejected')
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {t('rejected')} ({rejectedDeals.length})
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredDeals.map(deal => (
             <div key={deal.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
               <div className="flex justify-between items-start mb-3">
                 <div>
@@ -250,6 +377,7 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
                   <p className="text-gray-600 text-sm">{getCustomerName(deal.customerId)}</p>
                 </div>
                 <div className={`flex ${language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2'}`}>
+                <div className={"flex " + (language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2')}>
                   <button
                     onClick={() => handleEdit(deal)}
                     className="text-blue-600 hover:text-blue-800"
@@ -262,6 +390,7 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                </div>
                 </div>
               </div>
               
@@ -297,14 +426,22 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
                 {deal.notes && (
                   <p className="text-xs text-gray-600 mt-2">{deal.notes}</p>
                 )}
+
+                {deal.rejectionReason && (deal.status === 'مرفوض' || deal.status === 'rejected') && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-2 mt-2">
+                    <p className="text-xs text-red-800">
+                      <strong>{language === 'ar' ? 'سبب الرفض:' : 'Rejection Reason:'}</strong> {deal.rejectionReason}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        {deals.length === 0 && (
+        {filteredDeals.length === 0 && (
           <div className="text-center py-8 text-gray-500">
-            {t('noDealsRecorded')}
+            {deals.length === 0 ? t('noDealsRecorded') : (language === 'ar' ? 'لا توجد صفقات بالحالة المحددة' : 'No deals found with the selected status')}
           </div>
         )}
       </div>
@@ -399,6 +536,25 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
                 />
               </div>
 
+              {(formData.status === 'مرفوض' || formData.status === 'rejected') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {language === 'ar' ? 'سبب الرفض' : 'Rejection Reason'}
+                  </label>
+                  <input
+                    type="text"
+                    list="rejection-reasons"
+                    value={formData.rejectionReason}
+                    onChange={(e) => setFormData(prev => ({ ...prev, rejectionReason: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={language === 'ar' ? 'أدخل سبب الرفض...' : 'Enter rejection reason...'}
+                  />
+                  <datalist id="rejection-reasons">
+                    {rejectionReasons.map(reason => <option key={reason} value={reason} />)}
+                  </datalist>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('notes')}</label>
                 <textarea
@@ -410,6 +566,7 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
               </div>
 
               <div className={`flex justify-end ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'} pt-4`}>
+              <div className={"flex justify-end " + (language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3') + " pt-4"}>
                 <button
                   type="button"
                   onClick={resetForm}
@@ -424,6 +581,7 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
                   {editingDeal ? t('update') : t('add')}
                 </button>
               </div>
+              </div>
             </form>
           </div>
         </div>
@@ -431,5 +589,142 @@ const DealsManagement: React.FC<DealsManagementProps> = ({
     </div>
   );
 };
+
+const generateDealsPrintContent = (deals: Deal[], customers: Customer[], currency: string, language: string, t: (key: string) => string) => {
+  // Get rejection reasons from localStorage
+  const rejectionReasons = (() => {
+    const saved = localStorage.getItem('crm-rejection-reasons');
+    return saved ? JSON.parse(saved) : [];
+  })();
+
+  // Count rejected deals by reason
+  const rejectionStats = rejectionReasons.reduce((acc: Record<string, number>, reason: string) => {
+    acc[reason] = deals.filter(deal => 
+      (deal.status === 'مرفوض' || deal.status === 'rejected') && 
+      deal.rejectionReason === reason
+    ).length;
+    return acc;
+  }, {});
+
+  const formatCurrency = (amount: number) => {
+    if (language === 'ar') {
+      const symbols = { EGP: 'ج.م', USD: '$', EUR: '€', SAR: 'ر.س', AED: 'د.إ' };
+      return `${amount.toLocaleString('ar-EG')} ${symbols[currency as keyof typeof symbols] || 'ج.م'}`;
+    } else {
+      const symbols = { EGP: 'EGP', USD: '$', EUR: '€', SAR: 'SAR', AED: 'AED' };
+      return `${symbols[currency as keyof typeof symbols] || 'EGP'} ${amount.toLocaleString('en-US')}`;
+    }
+  };
+
+  const getCustomerName = (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    return customer?.name || (language === 'ar' ? 'عميل غير معروف' : 'Unknown Customer');
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (language === 'ar') {
+      switch (status) {
+        case 'ongoing': return 'جاري';
+        case 'closed': return 'مغلق';
+        case 'rejected': return 'مرفوض';
+        default: return status;
+      }
+    } else {
+      switch (status) {
+        case 'جاري': return 'Ongoing';
+        case 'مغلق': return 'Closed';
+        case 'مرفوض': return 'Rejected';
+        default: return status;
+      }
+    }
+  };
+
+  return `
+    <div class="print-container" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+      <div class="print-header">
+        <div class="print-title">${language === 'ar' ? 'تقرير الصفقات' : 'Deals Report'}</div>
+        <div class="print-date">
+          ${language === 'ar' ? 'تاريخ الإنشاء:' : 'Generated on:'} ${new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')} - ${new Date().toLocaleTimeString(language === 'ar' ? 'ar-EG' : 'en-US')}
+        </div>
+      </div>
+      
+      <div class="print-section">
+        <div class="print-section-title">${language === 'ar' ? 'قائمة الصفقات' : 'Deals List'}</div>
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th>${language === 'ar' ? 'اسم الصفقة' : 'Deal Name'}</th>
+              <th>${language === 'ar' ? 'العميل' : 'Customer'}</th>
+              <th>${language === 'ar' ? 'القيمة' : 'Value'}</th>
+              <th>${language === 'ar' ? 'الحالة' : 'Status'}</th>
+              <th>${language === 'ar' ? 'تاريخ الإغلاق المتوقع' : 'Expected Close Date'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${deals.map(deal => `
+              <tr>
+                <td>${deal.title}</td>
+                <td>${getCustomerName(deal.customerId)}</td>
+                <td>${formatCurrency(deal.value)}</td>
+                <td>${getStatusLabel(deal.status)}</td>
+                <td>${new Date(deal.expectedCloseDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}</td>
+              </tr>
+              ${deal.rejectionReason && (deal.status === 'مرفوض' || deal.status === 'rejected') ? `
+                <tr>
+                  <td colspan="5" style="background-color: #fef2f2; color: #991b1b; font-size: 10pt;">
+                    ${language === 'ar' ? 'سبب الرفض:' : 'Rejection Reason:'} ${deal.rejectionReason}
+                  </td>
+                </tr>
+              ` : ''}
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      ${rejectionReasons.length > 0 ? `
+        <div class="print-section">
+          <div class="print-section-title">${language === 'ar' ? 'إحصائيات أسباب الرفض' : 'Rejection Reasons Statistics'}</div>
+          <table class="print-table">
+            <thead>
+              <tr>
+                <th>${language === 'ar' ? 'سبب الرفض' : 'Rejection Reason'}</th>
+                <th>${language === 'ar' ? 'عدد الصفقات المرفوضة' : 'Number of Rejected Deals'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rejectionReasons.map((reason: string) => `
+                <tr>
+                  <td>${reason}</td>
+                  <td>${rejectionStats[reason] || 0}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : ''}
+      
+      <div class="print-footer">
+        <div>${language === 'ar' ? 'تم إنشاء هذا التقرير بواسطة نظام إدارة العملاء (CRM)' : 'This report was generated by CRM System'}</div>
+      </div>
+    </div>
+  `;
+};
+
+const getPrintStyles = () => `
+  body { font-family: 'Arial', sans-serif; font-size: 12pt; line-height: 1.4; color: #000; background: white; margin: 0; padding: 20px; }
+  .print-container { max-width: none; margin: 0; padding: 0; }
+  .print-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+  .print-title { font-size: 24pt; font-weight: bold; margin-bottom: 10px; }
+  .print-date { font-size: 14pt; color: #666; margin-bottom: 5px; }
+  .print-section { margin-bottom: 25px; page-break-inside: avoid; }
+  .print-section-title { font-size: 18pt; font-weight: bold; color: #333; margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+  .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+  .print-table th { background-color: #f5f5f5; font-weight: bold; }
+  .print-footer { margin-top: 30px; text-align: center; font-size: 10pt; color: #666; border-top: 1px solid #ccc; padding-top: 15px; }
+  [dir="rtl"] { direction: rtl; text-align: right; }
+  [dir="rtl"] .print-table th, [dir="rtl"] .print-table td { text-align: right; }
+  [dir="rtl"] .print-header { text-align: center; }
+`;
 
 export default DealsManagement;

@@ -31,6 +31,7 @@ export interface Deal {
   expectedCloseDate: string;
   createdAt: string;
   notes?: string;
+  rejectionReason?: string;
 }
 
 export interface Task {

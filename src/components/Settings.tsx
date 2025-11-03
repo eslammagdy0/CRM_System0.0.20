@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Download, Upload, Palette, Moon, Sun, Globe, DollarSign } from 'lucide-react';
+import { Settings as SettingsIcon, Download, Upload, Palette, Moon, Sun, Globe, DollarSign, Sliders, Trash2 } from 'lucide-react';
 import { Settings, Theme, Language, Currency } from '../types';
 import { themes } from '../utils/themes';
 import { translations, currencies, currenciesEn } from '../utils/translations';
@@ -13,9 +13,14 @@ interface SettingsProps {
 }
 
 export default function SettingsComponent({ settings, setSettings, onExportBackup, onImportBackup, language }: SettingsProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'backup'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'customize' | 'backup'>('general');
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [tempSettings, setTempSettings] = useState<Settings>(settings);
+  const [rejectionReasons, setRejectionReasons] = useState<string[]>(() => {
+    const saved = localStorage.getItem('crm-rejection-reasons');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newRejectionReason, setNewRejectionReason] = useState('');
 
   const t = (key: string) => {
     return translations[language as keyof typeof translations]?.[key as keyof typeof translations['ar']] || key;
@@ -47,8 +52,27 @@ export default function SettingsComponent({ settings, setSettings, onExportBacku
   const tabs = [
     { id: 'general', label: language === 'ar' ? 'عام' : 'General', icon: SettingsIcon },
     { id: 'appearance', label: language === 'ar' ? 'المظهر' : 'Appearance', icon: Palette },
+    { id: 'customize', label: language === 'ar' ? 'تخصيص' : 'Customize', icon: Sliders },
     { id: 'backup', label: language === 'ar' ? 'النسخ الاحتياطية' : 'Backup', icon: Download }
   ];
+
+  const updateRejectionReasons = (newReasons: string[]) => {
+    setRejectionReasons(newReasons);
+    localStorage.setItem('crm-rejection-reasons', JSON.stringify(newReasons));
+  };
+
+  const addRejectionReason = () => {
+    if (newRejectionReason.trim() && !rejectionReasons.includes(newRejectionReason.trim())) {
+      const newReasons = [...rejectionReasons, newRejectionReason.trim()];
+      updateRejectionReasons(newReasons);
+      setNewRejectionReason('');
+    }
+  };
+
+  const deleteRejectionReason = (reasonToDelete: string) => {
+    const newReasons = rejectionReasons.filter(reason => reason !== reasonToDelete);
+    updateRejectionReasons(newReasons);
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6" dir="rtl">
@@ -203,6 +227,76 @@ export default function SettingsComponent({ settings, setSettings, onExportBacku
             >
               {language === 'ar' ? 'حفظ الإعدادات' : 'Save Settings'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Customize Settings */}
+      {activeTab === 'customize' && (
+        <div className="space-y-6">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="font-medium text-blue-800 mb-2">
+              {language === 'ar' ? 'إدارة أسباب الرفض' : 'Manage Rejection Reasons'}
+            </h3>
+            <p className="text-sm text-blue-600">
+              {language === 'ar' 
+                ? 'يمكنك إضافة وإدارة أسباب رفض الصفقات التي ستظهر في قائمة منسدلة عند رفض صفقة.'
+                : 'You can add and manage deal rejection reasons that will appear in a dropdown when rejecting a deal.'
+              }
+            </p>
+          </div>
+
+          {/* Add new reason */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {language === 'ar' ? 'إضافة سبب رفض جديد' : 'Add New Rejection Reason'}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newRejectionReason}
+                onChange={(e) => setNewRejectionReason(e.target.value)}
+                placeholder={language === 'ar' ? 'أدخل سبب الرفض...' : 'Enter rejection reason...'}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    addRejectionReason();
+                  }
+                }}
+              />
+              <button
+                onClick={addRejectionReason}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                {language === 'ar' ? 'إضافة' : 'Add'}
+              </button>
+            </div>
+          </div>
+
+          {/* List of existing reasons */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {language === 'ar' ? 'أسباب الرفض الحالية' : 'Current Rejection Reasons'}
+            </label>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {rejectionReasons.map((reason, index) => (
+                <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                  <span className="text-sm text-gray-800">{reason}</span>
+                  <button
+                    onClick={() => deleteRejectionReason(reason)}
+                    className="text-red-600 hover:text-red-800 p-1"
+                    title={language === 'ar' ? 'حذف' : 'Delete'}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              {rejectionReasons.length === 0 && (
+                <p className="text-gray-500 text-sm text-center py-8">
+                  {language === 'ar' ? 'لا توجد أسباب رفض محفوظة' : 'No rejection reasons saved'}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

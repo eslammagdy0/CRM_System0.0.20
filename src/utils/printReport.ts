@@ -23,8 +23,13 @@ export const generatePrintableReport = (
   
   // Format currency
   const formatCurrency = (amount: number) => {
-    const symbols = { EGP: 'ج.م', USD: '$', EUR: '€', SAR: 'ر.س', AED: 'د.إ' };
-    return `${amount.toLocaleString()} ${symbols[currency as keyof typeof symbols] || 'ج.م'}`;
+    if (language === 'ar') {
+      const symbols = { EGP: 'ج.م', USD: '$', EUR: '€', SAR: 'ر.س', AED: 'د.إ' };
+      return `${amount.toLocaleString('ar-EG')} ${symbols[currency as keyof typeof symbols] || 'ج.م'}`;
+    } else {
+      const symbols = { EGP: 'EGP', USD: '$', EUR: '€', SAR: 'SAR', AED: 'AED' };
+      return `${symbols[currency as keyof typeof symbols] || 'EGP'} ${amount.toLocaleString('en-US')}`;
+    }
   };
   
   // Calculate statistics
@@ -52,58 +57,61 @@ export const generatePrintableReport = (
   const printContent = `
     <div class="print-container" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
       <div class="print-header">
-        <div class="print-title">تقرير نظام إدارة العملاء</div>
+        <div class="print-title">${language === 'ar' ? 'تقرير نظام إدارة العملاء' : 'CRM System Report'}</div>
         <div class="print-date">
-          فترة التقرير: ${new Date(startDate).toLocaleDateString('ar-EG')} - ${new Date(endDate).toLocaleDateString('ar-EG')}
+          ${language === 'ar' ? 'فترة التقرير:' : 'Report Period:'} ${new Date(startDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')} - ${new Date(endDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
         </div>
         <div class="print-date">
-          تاريخ الإنشاء: ${new Date().toLocaleDateString('ar-EG')} - ${new Date().toLocaleTimeString('ar-EG')}
+          ${language === 'ar' ? 'تاريخ الإنشاء:' : 'Generated on:'} ${new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')} - ${new Date().toLocaleTimeString(language === 'ar' ? 'ar-EG' : 'en-US')}
         </div>
       </div>
       
       <div class="print-section">
-        <div class="print-section-title">الإحصائيات العامة</div>
+        <div class="print-section-title">${language === 'ar' ? 'الإحصائيات العامة' : 'General Statistics'}</div>
         <div class="print-stats-grid">
           <div class="print-stat-item">
-            <div class="print-stat-label">العملاء الجدد</div>
+            <div class="print-stat-label">${language === 'ar' ? 'العملاء الجدد' : 'New Customers'}</div>
             <div class="print-stat-value">${filteredCustomers.length}</div>
           </div>
           <div class="print-stat-item">
-            <div class="print-stat-label">إجمالي التفاعلات</div>
+            <div class="print-stat-label">${language === 'ar' ? 'إجمالي التفاعلات' : 'Total Interactions'}</div>
             <div class="print-stat-value">${filteredInteractions.length}</div>
           </div>
           <div class="print-stat-item">
-            <div class="print-stat-label">الصفقات المغلقة</div>
+            <div class="print-stat-label">${language === 'ar' ? 'الصفقات المغلقة' : 'Closed Deals'}</div>
             <div class="print-stat-value">${closedDeals.length}</div>
           </div>
           <div class="print-stat-item">
-            <div class="print-stat-label">قيمة الصفقات المغلقة</div>
+            <div class="print-stat-label">${language === 'ar' ? 'قيمة الصفقات المغلقة' : 'Closed Deals Value'}</div>
             <div class="print-stat-value">${formatCurrency(closedDealsValue)}</div>
           </div>
           <div class="print-stat-item">
-            <div class="print-stat-label">القيمة المتوقعة</div>
+            <div class="print-stat-label">${language === 'ar' ? 'القيمة المتوقعة' : 'Expected Value'}</div>
             <div class="print-stat-value">${formatCurrency(expectedValue)}</div>
           </div>
           <div class="print-stat-item">
-            <div class="print-stat-label">معدل النجاح</div>
+            <div class="print-stat-label">${language === 'ar' ? 'معدل النجاح' : 'Success Rate'}</div>
             <div class="print-stat-value">${successRate}%</div>
           </div>
         </div>
       </div>
       
       <div class="print-section">
-        <div class="print-section-title">تصنيف العملاء</div>
+        <div class="print-section-title">${language === 'ar' ? 'تصنيف العملاء' : 'Customer Classification'}</div>
         <table class="print-table">
           <thead>
             <tr>
-              <th>نوع العميل</th>
-              <th>العدد</th>
+              <th>${language === 'ar' ? 'نوع العميل' : 'Customer Type'}</th>
+              <th>${language === 'ar' ? 'العدد' : 'Count'}</th>
             </tr>
           </thead>
           <tbody>
             ${Object.entries(customerTypes).map(([type, count]) => `
               <tr>
-                <td>${type}</td>
+                <td>${language === 'ar' ? type : 
+                  (type === 'جديد' || type === 'new' ? 'New' :
+                   type === 'محتمل' || type === 'potential' ? 'Potential' :
+                   type === 'دائم' || type === 'permanent' ? 'Permanent' : type)}</td>
                 <td>${count}</td>
               </tr>
             `).join('')}
@@ -112,18 +120,22 @@ export const generatePrintableReport = (
       </div>
       
       <div class="print-section">
-        <div class="print-section-title">تحليل التفاعلات</div>
+        <div class="print-section-title">${language === 'ar' ? 'تحليل التفاعلات' : 'Interactions Analysis'}</div>
         <table class="print-table">
           <thead>
             <tr>
-              <th>نوع التفاعل</th>
-              <th>العدد</th>
+              <th>${language === 'ar' ? 'نوع التفاعل' : 'Interaction Type'}</th>
+              <th>${language === 'ar' ? 'العدد' : 'Count'}</th>
             </tr>
           </thead>
           <tbody>
             ${Object.entries(interactionTypes).map(([type, count]) => `
               <tr>
-                <td>${type}</td>
+                <td>${language === 'ar' ? type : 
+                  (type === 'مكالمة' || type === 'call' ? 'Call' :
+                   type === 'مقابلة' || type === 'meeting' ? 'Meeting' :
+                   type === 'إيميل' || type === 'email' ? 'Email' :
+                   type === 'رسالة' || type === 'message' ? 'Message' : type)}</td>
                 <td>${count}</td>
               </tr>
             `).join('')}
@@ -132,28 +144,28 @@ export const generatePrintableReport = (
       </div>
       
       <div class="print-section">
-        <div class="print-section-title">أداء الصفقات</div>
+        <div class="print-section-title">${language === 'ar' ? 'أداء الصفقات' : 'Deals Performance'}</div>
         <table class="print-table">
           <thead>
             <tr>
-              <th>حالة الصفقة</th>
-              <th>العدد</th>
-              <th>القيمة الإجمالية</th>
+              <th>${language === 'ar' ? 'حالة الصفقة' : 'Deal Status'}</th>
+              <th>${language === 'ar' ? 'العدد' : 'Count'}</th>
+              <th>${language === 'ar' ? 'القيمة الإجمالية' : 'Total Value'}</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>جاري</td>
+              <td>${language === 'ar' ? 'جاري' : 'Ongoing'}</td>
               <td>${filteredDeals.filter(d => d.status === 'جاري').length}</td>
               <td>${formatCurrency(filteredDeals.filter(d => d.status === 'جاري').reduce((sum, d) => sum + d.value, 0))}</td>
             </tr>
             <tr>
-              <td>مغلق</td>
+              <td>${language === 'ar' ? 'مغلق' : 'Closed'}</td>
               <td>${closedDeals.length}</td>
               <td>${formatCurrency(closedDealsValue)}</td>
             </tr>
             <tr>
-              <td>مرفوض</td>
+              <td>${language === 'ar' ? 'مرفوض' : 'Rejected'}</td>
               <td>${filteredDeals.filter(d => d.status === 'مرفوض').length}</td>
               <td>${formatCurrency(filteredDeals.filter(d => d.status === 'مرفوض').reduce((sum, d) => sum + d.value, 0))}</td>
             </tr>
@@ -162,25 +174,25 @@ export const generatePrintableReport = (
       </div>
       
       <div class="print-section">
-        <div class="print-section-title">حالة المهام</div>
+        <div class="print-section-title">${language === 'ar' ? 'حالة المهام' : 'Tasks Status'}</div>
         <table class="print-table">
           <thead>
             <tr>
-              <th>حالة المهمة</th>
-              <th>العدد</th>
+              <th>${language === 'ar' ? 'حالة المهمة' : 'Task Status'}</th>
+              <th>${language === 'ar' ? 'العدد' : 'Count'}</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>قيد الانتظار</td>
+              <td>${language === 'ar' ? 'قيد الانتظار' : 'Pending'}</td>
               <td>${filteredTasks.filter(t => t.status === 'قيد الانتظار').length}</td>
             </tr>
             <tr>
-              <td>جاري</td>
+              <td>${language === 'ar' ? 'جاري' : 'In Progress'}</td>
               <td>${filteredTasks.filter(t => t.status === 'جاري').length}</td>
             </tr>
             <tr>
-              <td>مكتمل</td>
+              <td>${language === 'ar' ? 'مكتمل' : 'Completed'}</td>
               <td>${filteredTasks.filter(t => t.status === 'مكتمل').length}</td>
             </tr>
           </tbody>
@@ -188,8 +200,8 @@ export const generatePrintableReport = (
       </div>
       
       <div class="print-footer">
-        <div>تم إنشاء هذا التقرير بواسطة نظام إدارة العملاء (CRM)</div>
-        <div>جميع الحقوق محفوظة © ${new Date().getFullYear()}</div>
+        <div>${language === 'ar' ? 'تم إنشاء هذا التقرير بواسطة نظام إدارة العملاء (CRM)' : 'This report was generated by CRM System'}</div>
+        <div>${language === 'ar' ? 'جميع الحقوق محفوظة' : 'All rights reserved'} © ${new Date().getFullYear()}</div>
       </div>
     </div>
   `;
@@ -220,7 +232,7 @@ export const printReport = (
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>تقرير نظام إدارة العملاء</title>
+        <title>${language === 'ar' ? 'تقرير نظام إدارة العملاء' : 'CRM System Report'}</title>
         <style>
           ${getReportStyles()}
         </style>

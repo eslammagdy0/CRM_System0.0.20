@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, TrendingUp, Calendar, BarChart3, Search, FileDown, FileUp, UserPlus, Target, Phone, Settings as SettingsIcon } from 'lucide-react';
+import { Users, TrendingUp, Calendar, BarChart3, Search, FileDown, FileUp, UserPlus, Target, Phone, Settings as SettingsIcon, Menu, X } from 'lucide-react';
 import CustomerManagement from './components/CustomerManagement';
 import InteractionManagement from './components/InteractionManagement';
 import DealsManagement from './components/DealsManagement';
@@ -22,6 +22,7 @@ function App() {
     theme: 'default',
     darkMode: false
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -190,7 +191,8 @@ function App() {
 
       <nav className={`${themeClasses.surface} shadow-sm border-b ${themeClasses.border}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`flex ${settings.language === 'ar' ? 'space-x-8 space-x-reverse' : 'space-x-8'}`}>
+          {/* Desktop Navigation */}
+          <div className={`hidden md:flex ${settings.language === 'ar' ? 'space-x-8 space-x-reverse' : 'space-x-8'}`}>
             {tabs.map((tab) => {
               const IconComponent = tab.icon;
               return (
@@ -209,6 +211,48 @@ function App() {
               );
             })}
           </div>
+          
+          {/* Mobile Navigation */}
+          <div className="md:hidden flex items-center justify-between w-full py-4">
+            <h3 className={`text-lg font-semibold ${themeClasses.text}`}>
+              {tabs.find(tab => tab.id === activeTab)?.name || 
+               (settings.language === 'ar' ? tabs.find(tab => tab.id === activeTab)?.name : getEnglishTabName(activeTab))}
+            </h3>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className={`p-2 rounded-lg ${settings.darkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+          
+          {/* Mobile Menu Dropdown */}
+          {mobileMenuOpen && (
+            <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg border-t z-50">
+              <div className="px-4 py-2 space-y-1">
+                {tabs.map((tab) => {
+                  const IconComponent = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                        activeTab === tab.id
+                          ? `bg-${settings.theme}-50 text-${settings.theme}-600`
+                          : `text-gray-700 hover:bg-gray-50`
+                      }`}
+                    >
+                      <IconComponent className={`h-5 w-5 ${settings.language === 'ar' ? 'ml-3' : 'mr-3'}`} />
+                      {settings.language === 'ar' ? tab.name : getEnglishTabName(tab.id)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 

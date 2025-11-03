@@ -130,7 +130,14 @@ export const translations = {
     currency: 'العملة',
     theme: 'المظهر',
     darkMode: 'الوضع الليلي',
-    backup: 'النسخ الاحتياطية'
+    backup: 'النسخ الاحتياطية',
+    customize: 'تخصيص',
+    manageRejectionReasons: 'إدارة أسباب الرفض',
+    addNewRejectionReason: 'إضافة سبب رفض جديد',
+    currentRejectionReasons: 'أسباب الرفض الحالية',
+    rejectionReasonsDescription: 'يمكنك إضافة وإدارة أسباب رفض الصفقات التي ستظهر في قائمة منسدلة عند رفض صفقة.',
+    rejectionReasonsStats: 'إحصائيات أسباب الرفض',
+    numberOfRejectedDeals: 'عدد الصفقات المرفوضة'
   },
   en: {
     // Navigation
@@ -224,8 +231,8 @@ export const translations = {
     printReport: 'Print Report',
     newCustomers: 'New Customers',
     totalInteractions: 'Total Interactions',
-    // closedDeals: 'Closed Deals',
-    // expectedValue: 'Expected Value',
+    closedDeals: 'Closed Deals',
+    expectedValue: 'Expected Value',
     interactionsByType: 'Interactions by Type',
     customersByType: 'Customers by Type',
     performanceSummary: 'Performance Summary',
@@ -265,7 +272,7 @@ export const translations = {
     // Interaction types
     call: 'Call',
     meeting: 'Meeting',
-    // email: 'Email',
+    email: 'Email',
     message: 'Message',
     
     // Interaction outcomes
@@ -288,12 +295,65 @@ export const translations = {
     inProgress: 'In Progress',
     completed: 'Completed',
     
+    // Additional translations
+    allResults: 'All Results',
+    totalResults: 'Total Results',
+    fromDate: 'From Date',
+    toDate: 'To Date',
+    searchAndFilter: 'Search & Filter',
+    allDeals: 'All Deals',
+    allTasks: 'All Tasks',
+    noInteractionsInPeriod: 'No interactions found in the selected period',
+    noDealsWithStatus: 'No deals found with the selected status',
+    noTasksWithStatus: 'No tasks found with the selected status',
+    rejectionReason: 'Rejection Reason',
+    printReport: 'Print Report',
+    
+    // Additional translations
+    manageRejectionReasons: 'Manage Rejection Reasons',
+    addNewReason: 'Add new reason...',
+    noRejectionReasonsSaved: 'No rejection reasons saved',
+    close: 'Close',
+    filterCompletedTasks: 'Filter Completed Tasks',
+    completedTasksPeriod: 'Completed Tasks Period:',
+    noCompletedTasksInPeriod: 'No completed tasks found in the selected period',
+    
+    // Additional translations
+    allResults: 'جميع النتائج',
+    totalResults: 'إجمالي النتائج',
+    fromDate: 'من تاريخ',
+    toDate: 'إلى تاريخ',
+    searchAndFilter: 'البحث والفلترة',
+    allDeals: 'جميع الصفقات',
+    allTasks: 'جميع المهام',
+    noInteractionsInPeriod: 'لا توجد تفاعلات في الفترة المحددة',
+    noDealsWithStatus: 'لا توجد صفقات بالحالة المحددة',
+    noTasksWithStatus: 'لا توجد مهام بالحالة المحددة',
+    rejectionReason: 'سبب الرفض',
+    printReport: 'طباعة التقرير',
+    
+    // Additional translations
+    manageRejectionReasons: 'إدارة أسباب الرفض',
+    addNewReason: 'إضافة سبب جديد...',
+    noRejectionReasonsSaved: 'لا توجد أسباب رفض محفوظة',
+    close: 'إغلاق',
+    filterCompletedTasks: 'فلترة المهام المكتملة',
+    completedTasksPeriod: 'فترة المهام المكتملة:',
+    noCompletedTasksInPeriod: 'لا توجد مهام مكتملة في الفترة المحددة',
+    
     // Settings
     language: 'Language',
     currency: 'Currency',
     theme: 'Theme',
     darkMode: 'Dark Mode',
-    // backup: 'Backup'
+    backup: 'Backup',
+    customize: 'Customize',
+    manageRejectionReasons: 'Manage Rejection Reasons',
+    addNewRejectionReason: 'Add New Rejection Reason',
+    currentRejectionReasons: 'Current Rejection Reasons',
+    rejectionReasonsDescription: 'You can add and manage deal rejection reasons that will appear in a dropdown when rejecting a deal.',
+    rejectionReasonsStats: 'Rejection Reasons Statistics',
+    numberOfRejectedDeals: 'Number of Rejected Deals'
   }
 };
 
